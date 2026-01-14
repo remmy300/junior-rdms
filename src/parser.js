@@ -35,3 +35,15 @@ function parseInsert(sql) {
     values,
   };
 }
+
+function parseSelect(sql) {
+  const match = sql.match(/SELECT \* FROM (\w+)/i);
+  if (!match) throw new Error("Invalid Select syntax");
+
+  const [, table] = match;
+
+  return {
+    command: "SELECT",
+    table,
+  };
+}
