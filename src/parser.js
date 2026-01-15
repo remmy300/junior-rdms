@@ -1,5 +1,5 @@
 export function parseSql(sql) {
-  sql = sql.trim(sql);
+  sql = sql.trim().replace(/;$/, "");
   if (sql.startsWith("CREATE TABLE")) {
     return parseCreateTable(sql);
   } else if (sql.startsWith("INSERT INTO")) {
@@ -37,13 +37,19 @@ function parseInsert(sql) {
 }
 
 function parseSelect(sql) {
-  const match = sql.match(/SELECT \* FROM (\w+)/i);
+  const match = sql.match(/SELECT (.+) FROM (\w+)/i);
   if (!match) throw new Error("Invalid Select syntax");
 
-  const [, table] = match;
+  const [, columnsPart, table] = match;
+
+  const columns =
+    columnsPart.trim() === "*"
+      ? "*"
+      : columnsPart.split(",").map((c) => c.trim());
 
   return {
     command: "SELECT",
     table,
+    columns,
   };
 }

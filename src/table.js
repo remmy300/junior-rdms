@@ -21,4 +21,19 @@ export class Table {
   selectAll() {
     return this.rows;
   }
+
+  //   SELECT column projection only
+
+  select(columns) {
+    if (columns === "*") {
+      return this.rows;
+    }
+    return this.rows.map((row) => {
+      const result = {};
+      columns.forEach((col) => {
+        result[col] = row[col];
+      });
+      return result;
+    });
+  }
 }

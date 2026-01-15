@@ -9,27 +9,41 @@ const sql =
   "INSERT INTO users (id, name, email, isActive) VALUES (1, 'Jane', 'jane@example.com', 1);";
 
 const selectSql = "SELECT * FROM users";
+const insertCmd = parseSql(sql);
+const row = {};
 
-try {
-  // insert
-  const insertCmd = parseSql(sql);
-  const row = {};
+insertCmd.columns.forEach((col, i) => {
+  row[col] = insertCmd.values[i];
+});
+db.getTable(insertCmd.table).insert(row);
 
-  insertCmd.columns.forEach((col, i) => {
-    row[col] = insertCmd.values[i];
-  });
+const selectCmd = parseSql(selectSql);
+const table = db.getTable(selectCmd.table);
+const rows = table.select(selectCmd.columns);
 
-  db.getTable(insertCmd.table).insert(row);
+console.log("SELECT result:");
+console.log(rows);
 
-  // select
-  const selectedcmd = parseSql(selectSql);
-  const rows = db.getTable(selectedcmd.table).selectAll();
+// try {
+//   // insert
+//   const insertCmd = parseSql(sql);
+//   const row = {};
 
-  console.log("SELECT results");
-  console.log(rows);
-} catch (err) {
-  console.error("Error:", err.message);
-}
+//   insertCmd.columns.forEach((col, i) => {
+//     row[col] = insertCmd.values[i];
+//   });
+
+//   db.getTable(insertCmd.table).insert(row);
+
+//   // select
+//   const selectedcmd = parseSql(selectSql);
+//   const rows = db.getTable(selectedcmd.table).selectAll();
+
+//   console.log("SELECT results");
+//   console.log(rows);
+// } catch (err) {
+//   console.error("Error:", err.message);
+// }
 
 // INSERT INTO CMD
 // try {
