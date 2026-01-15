@@ -37,19 +37,42 @@ function parseInsert(sql) {
 }
 
 function parseSelect(sql) {
-  const match = sql.match(/SELECT (.+) FROM (\w+)/i);
-  if (!match) throw new Error("Invalid Select syntax");
+  const match = sql.match(
+    /SELECT\s+(.+)\s+FROM\s+(\w+)(?:\s+WHERE\s+(\w+)\s*=\s*(.+))?/i
+  );
 
-  const [, columnsPart, table] = match;
+  if (!match) throw new Error("Invalid SELECT syntax");
+
+  const [, columnsPart, table, whereColumn, whereValueRaw] = match;
 
   const columns =
     columnsPart.trim() === "*"
       ? "*"
       : columnsPart.split(",").map((c) => c.trim());
 
+  let where = null;
+
+  if (whereColumn) {
+    let value = whereValueRaw.trim();
+
+    if (value === "1" || value === "0") {
+      value = Boolean(Number(value));
+    } else if (value.startsWith("'") && value.endsWith("'")) {
+      value = value.slice(1, -1);
+    } else if (!NaN(Number(value))) {
+      value = Number(value);
+    }
+
+    where = {
+      column: whereColumn,
+      value,
+    };
+  }
+
   return {
     command: "SELECT",
     table,
     columns,
+    where,
   };
 }

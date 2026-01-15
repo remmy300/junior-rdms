@@ -24,16 +24,22 @@ export class Table {
 
   //   SELECT column projection only
 
-  select(columns) {
-    if (columns === "*") {
-      return this.rows;
+  select(columns = "*", where = null) {
+    let result = [...this.rows];
+
+    if (where) {
+      result = result.filter((row) => row[where.column] === where.value);
     }
-    return this.rows.map((row) => {
-      const result = {};
-      columns.forEach((col) => {
-        result[col] = row[col];
-      });
+    if (columns === "*") {
       return result;
+    }
+
+    return result.map((row) => {
+      const obj = {};
+      columns.forEach((col) => {
+        obj[col] = row[col];
+      });
+      return obj;
     });
   }
 }

@@ -8,7 +8,7 @@ db.createTable("users", ["id", "name", "email", "isActive"], "id");
 const sql =
   "INSERT INTO users (id, name, email, isActive) VALUES (1, 'Jane', 'jane@example.com', 1);";
 
-const selectSql = "SELECT * FROM users";
+const selectSql = "SELECT * FROM users WHERE id =1";
 const insertCmd = parseSql(sql);
 const row = {};
 
@@ -18,8 +18,9 @@ insertCmd.columns.forEach((col, i) => {
 db.getTable(insertCmd.table).insert(row);
 
 const selectCmd = parseSql(selectSql);
+console.log("Parsed SELECT command:", selectCmd);
 const table = db.getTable(selectCmd.table);
-const rows = table.select(selectCmd.columns);
+const rows = table.select(selectCmd.columns, selectCmd.where);
 
 console.log("SELECT result:");
 console.log(rows);
