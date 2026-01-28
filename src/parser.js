@@ -37,97 +37,150 @@ function parseInsert(sql) {
       return Number(v);
     }
 
-    return v;
+    // Handle SQL NULL / undefined
+    if (v.toLowerCase() === "null" || v.toLowerCase() === "undefined") {
+      return null;
+    }
+
+    throw new Error(`Invalid value: ${v}`);
   });
 
   return { command: "INSERT", table, columns, values };
 }
 
-function parseWhere(whereRaw) {
-  if (!whereRaw) return null;
+export function parseSelect(sql) {
+  sql = sql.trim().replace(/;$/, "");
 
-  if (/ AND /i.test(whereRaw)) {
-    const parts = whereRaw.split(/ AND /i);
-    return {
-      operator: "AND",
-      conditions: parts.map(parseCondition),
-    };
+  // Check for DISTINCT
+  let distinct = false;
+  if (/^SELECT\s+DISTINCT/i.test(sql)) {
+    distinct = true;
+    sql = sql.replace(/^SELECT\s+DISTINCT\s+/i, "SELECT ");
   }
 
-  if (/ OR /i.test(whereRaw)) {
-    const parts = whereRaw.split(/ OR /i);
-    return {
-      operator: "OR",
-      conditions: parts.map(parseCondition),
-    };
-  }
+  // parse SELECT ...FROM...
+  const selectMatch = sql.match(/^SELECT\s+(.+?)\s+FROM\s+(\w+)/i);
+  if (!selectMatch) throw new Error("Invalid SELECT syntax");
 
-  return {
-    operator: "AND",
-    conditions: [parseCondition(whereRaw)],
-  };
-}
+  const columnsPart = selectMatch[1];
+  const table = selectMatch[2];
 
-function parseCondition(cond) {
-  const match = cond.match(/(\w+)\s*(=|>|<|>=|<=)\s*(.+)/);
-  if (!match) throw new Error("Invalid WHERE condition");
+  let where = null;
+  let groupByColumns = null;
+  let having = null;
+  let orderBy = null;
+  let limit = null;
+  let offset = null;
 
-  let [, column, operator, value] = match;
-  value = value.trim();
-
-  if (value.startsWith("'") && value.endsWith("'")) {
-    value = value.slice(1, -1);
-  } else if (!isNaN(Number(value))) {
-    value = Number(value);
-  } else if (value.toLowerCase() === "true") {
-    value = true;
-  } else if (value.toLowerCase() === "false") {
-    value = false;
-  }
-  return { column, operator, value };
-}
-
-function parseSelect(sql) {
-  const match = sql.match(
-    /SELECT\s+(.+?)\s+FROM\s+(\w+)(?:\s+WHERE\s+(.+?))?(?:\s+ORDER\s+BY\s+(\w+)(?:\s+(ASC|DESC))?)?(?:\s+LIMIT\s+(\d+))?(?:\s+OFFSET\s+(\d+))?$/i,
+  // Extract WHERE
+  const whereMatch = sql.match(
+    /\sWHERE\s+(.+?)(?=\sGROUP BY|\sORDER BY|\sLIMIT|\sOFFSET|$)/i,
   );
+  if (whereMatch) {
+    where = parseWhere(whereMatch[1]);
+  }
 
-  if (!match) throw new Error("Invalid SELECT syntax");
+  // Extract GROUP BY
+  const groupByMatch = sql.match(/\sGROUP BY\s+([\w\s,]+)/i);
+  if (groupByMatch) {
+    groupByColumns = groupByMatch[1].split(",").map((c) => c.trim());
+  }
 
-  const [
-    ,
-    columnsPart,
-    table,
-    whereRaw,
-    orderColumn,
-    orderDirection,
-    limitRaw,
-    offsetRaw,
-  ] = match;
+  // Extract HAVING
+  const havingMatch = sql.match(
+    /\sHAVING\s+(.+?)(?=\sORDER BY|\sLIMIT|\sOFFSET|$)/i,
+  );
+  if (havingMatch) {
+    having = parseWhere(havingMatch[1]); // reuse parseWhere for conditions
+  }
 
-  const columns =
-    columnsPart.trim() === "*"
-      ? "*"
-      : columnsPart.trim().toUpperCase() === "COUNT(*)"
-        ? ["COUNT(*)"]
-        : columnsPart.split(",").map((c) => c.trim());
+  // Extract ORDER BY
+  const orderByMatch = sql.match(/\sORDER BY\s+(\w+)(?:\s+(ASC|DESC))?/i);
+  if (orderByMatch) {
+    orderBy = { column: orderByMatch[1], direction: orderByMatch[2] || "ASC" };
+  }
 
-  const where = whereRaw ? parseWhere(whereRaw) : null;
-  const orderBy = orderColumn
-    ? { column: orderColumn, direction: orderDirection || "ASC" }
-    : null;
-  const limit = limitRaw ? Number(limitRaw) : null;
-  const offset = offsetRaw ? Number(offsetRaw) : null;
+  // Extract LIMIT
+  const limitMatch = sql.match(/\sLIMIT\s+(\d+)/i);
+  if (limitMatch) {
+    limit = Number(limitMatch[1]);
+  }
+
+  // Extract OFFSET
+  const offsetMatch = sql.match(/\sOFFSET\s+(\d+)/i);
+  if (offsetMatch) {
+    offset = Number(offsetMatch[1]);
+  }
+
+  // Parse columns and handle aliases
+  const columns = columnsPart.split(",").map((c) => {
+    const trimmed = c.trim();
+
+    // Check for COUNT(*) with optional alias
+    let match = trimmed.match(/^COUNT\(\*\)\s*(?:AS\s+(\w+))?$/i);
+    if (match) {
+      return { column: "COUNT(*)", alias: match[1] || "COUNT(*)" };
+    }
+
+    // Check for other aggregates like SUM(id), AVG(id), with optional alias
+    match = trimmed.match(/^(\w+\(\w+\))\s*(?:AS\s+(\w+))?$/i);
+    if (match) {
+      return { column: match[1], alias: match[2] || match[1] };
+    }
+
+    // Check for *
+    if (trimmed === "*") return { column: "*", alias: "*" };
+
+    // Regular column with optional alias
+    match = trimmed.match(/^(\w+)\s*(?:AS\s+(\w+))?$/i);
+    if (match) return { column: match[1], alias: match[2] || match[1] };
+
+    throw new Error(`Invalid column syntax: ${trimmed}`);
+  });
 
   return {
     command: "SELECT",
     table,
     columns,
     where,
+    groupByColumns,
+    having,
     orderBy,
     limit,
     offset,
+    distinct,
   };
+}
+
+function parseWhere(whereRaw) {
+  if (!whereRaw) return null;
+
+  // Split by AND / OR
+  let operator = "AND";
+  let conditionsRaw = [whereRaw];
+
+  if (/ AND /i.test(whereRaw)) {
+    operator = "AND";
+    conditionsRaw = whereRaw.split(/ AND /i);
+  } else if (/ OR /i.test(whereRaw)) {
+    operator = "OR";
+    conditionsRaw = whereRaw.split(/ OR /i);
+  }
+
+  const conditions = conditionsRaw.map(parseCondition);
+  return { operator, conditions };
+}
+
+function parseCondition(cond) {
+  const match = cond.match(/([\w\(\)\*]+)\s*(=|>|<|>=|<=)\s*(.+)/i);
+  if (!match) throw new Error("Invalid WHERE/HAVING condition");
+
+  let [, column, operator, value] = match;
+  value = value.trim();
+  if (value.startsWith("'") && value.endsWith("'")) value = value.slice(1, -1);
+  else if (!isNaN(Number(value))) value = Number(value);
+
+  return { column, operator, value };
 }
 
 function ParseUpdate(sql) {

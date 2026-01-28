@@ -36,21 +36,26 @@ db.createTable(
   "users",
   [
     { name: "id", type: "INT" },
-    { name: "name", type: "TEXT" },
-    { name: "email", type: "TEXT" },
-    { name: "isActive", type: "BOOLEAN" },
+    { name: "department", type: "TEXT" },
+    { name: "role", type: "TEXT" },
+    { name: "salary", type: "INT" },
   ],
   "id",
 );
 
-const initialInsert = parseSql(
-  "INSERT INTO users (id, name, email, isActive) VALUES (1, 'Jane', 'jane@example.com', 1)",
-);
-const row1 = {};
-initialInsert.columns.forEach((col, i) => {
-  row1[col] = initialInsert.values[i];
+const initialData = [
+  "INSERT INTO users (id, department, role, salary) VALUES (1, 'Sales', 'Manager', 5000)",
+  "INSERT INTO users (id, department, role, salary) VALUES (2, 'Sales', 'Rep', 3000)",
+  "INSERT INTO users (id, department, role, salary) VALUES (3, 'Sales', 'Rep', null)",
+  "INSERT INTO users (id, department, role, salary) VALUES (4, 'HR', 'Manager', 4500)",
+  "INSERT INTO users (id, department, role, salary) VALUES (5, 'HR', 'Rep', undefined)",
+  "INSERT INTO users (id, department, role, salary) VALUES (6, 'HR', null, 2900)",
+];
+
+initialData.forEach((sql) => {
+  const cmd = parseSql(sql);
+  execute(cmd, db);
 });
-db.getTable(initialInsert.table).insert(row1);
 
 // SQL Executor function
 
@@ -73,9 +78,12 @@ function execute(cmd, db) {
       const rows = table.select(
         cmd.columns,
         cmd.where,
+        cmd.groupByColumns,
+        cmd.having,
         cmd.orderBy,
         cmd.limit,
         cmd.offset,
+        cmd.distinct,
       );
       console.log("SELECT result:");
       console.log(rows);
@@ -138,25 +146,3 @@ function execute(cmd, db) {
       console.error(`Unsupported command: ${cmd.command}`);
   }
 }
-
-// INSERT example
-const insertSql =
-  "INSERT INTO users (id, name, email, isActive) VALUES (2, 'John', 'john@example.com', 0)";
-const insertCmd = parseSql(insertSql);
-execute(insertCmd, db);
-
-// SELECT example
-const selectSql = "SELECT * FROM users";
-const selectCmd = parseSql(selectSql);
-execute(selectCmd, db);
-
-// UPDATE example
-const updateSql =
-  "UPDATE users SET email='helen@gmail.com', isActive=0 WHERE id=1";
-const updateCmd = parseSql(updateSql);
-execute(updateCmd, db);
-
-// SELECT with WHERE example
-const selectWhereSql = "SELECT * FROM users WHERE id=1";
-const selectWhereCmd = parseSql(selectWhereSql);
-execute(selectWhereCmd, db);

@@ -14,10 +14,23 @@ export class Database {
   }
 
   getTable(name) {
-    const table = this.tables[name];
+    if (!name) throw new Error("Table name required");
+
+    // Try exact match first
+    let table = this.tables[name];
+
+    // Fallback to case-insensitive lookup
+    if (!table) {
+      const key = Object.keys(this.tables).find(
+        (k) => k.toLowerCase() === String(name).toLowerCase(),
+      );
+      if (key) table = this.tables[key];
+    }
+
     if (!table) {
       throw new Error(`Table ${name} does not exist`);
     }
+
     return table;
   }
 }
