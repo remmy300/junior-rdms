@@ -54,13 +54,20 @@ const initialData = [
 
 initialData.forEach((sql) => {
   const cmd = parseSql(sql);
-  execute(cmd, db);
+  execute(cmd, db, { silent: true });
 });
 
 // SQL Executor function
 
-function execute(cmd, db) {
+function execute(cmd, db, options = {}) {
+  const { silent = false } = options;
   switch (cmd.command) {
+    case "CREATE_TABLE": {
+      db.createTable(cmd.table, cmd.columns, cmd.primaryKey);
+      if (!silent) console.log(`Table ${cmd.table} created`);
+      break;
+    }
+
     case "INSERT": {
       const table = db.getTable(cmd.table);
       const row = {};
@@ -68,12 +75,11 @@ function execute(cmd, db) {
         row[col] = cmd.values[i];
       });
       table.insert(row);
-      console.log("Row inserted successfully");
+      if (!silent) console.log("Row inserted successfully");
       break;
     }
 
     case "SELECT": {
-      console.log("DEBUG CMD:", cmd);
       const table = db.getTable(cmd.table);
       const rows = table.select(
         cmd.columns,
@@ -85,8 +91,10 @@ function execute(cmd, db) {
         cmd.offset,
         cmd.distinct,
       );
-      console.log("SELECT result:");
-      console.log(rows);
+      if (!silent) {
+        console.log("SELECT result:");
+        console.log(rows);
+      }
       break;
     }
 
@@ -113,8 +121,10 @@ function execute(cmd, db) {
           });
         }
       });
-      console.log("Table after UPDATE:");
-      console.log(table.select());
+      if (!silent) {
+        console.log("Table after UPDATE:");
+        console.log(table.select());
+      }
       break;
     }
     case "DELETE": {
@@ -138,7 +148,7 @@ function execute(cmd, db) {
 
       const after = table.rows.length;
 
-      console.log(`${before - after} row(s) deleted`);
+      if (!silent) console.log(`${before - after} row(s) deleted`);
       break;
     }
 

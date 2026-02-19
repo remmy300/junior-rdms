@@ -7,12 +7,44 @@ export function parseSql(sql) {
   } else if (/^SELECT/i.test(sql)) {
     return parseSelect(sql);
   } else if (/^UPDATE/i.test(sql)) {
-    return ParseUpdate(sql);
+    return parseUpdate(sql);
   } else if (/^DELETE/i.test(sql)) {
     return parseDelete(sql);
   } else {
     throw new Error("Unsupported SQL statement");
   }
+}
+
+function parseCreateTable(sql) {
+  const match = sql.match(
+    /^CREATE\s+TABLE\s+(\w+)\s*\((.+)\)\s*(?:PRIMARY\s+KEY\s*\((\w+)\))?$/i,
+  );
+  if (!match) throw new Error("Invalid CREATE TABLE syntax");
+
+  const [, table, columnsRaw, explicitPrimaryKey] = match;
+  const columns = columnsRaw.split(",").map((part) => {
+    const trimmed = part.trim();
+    const colMatch = trimmed.match(/^(\w+)\s+(INT|TEXT|BOOLEAN)(\s+PRIMARY\s+KEY)?$/i);
+    if (!colMatch) {
+      throw new Error(`Invalid column definition: ${trimmed}`);
+    }
+
+    return {
+      name: colMatch[1],
+      type: colMatch[2].toUpperCase(),
+      isPrimaryKey: Boolean(colMatch[3]),
+    };
+  });
+
+  const inlinePrimaryKey = columns.find((c) => c.isPrimaryKey)?.name ?? null;
+  const primaryKey = explicitPrimaryKey || inlinePrimaryKey;
+
+  return {
+    command: "CREATE_TABLE",
+    table,
+    columns: columns.map(({ name, type }) => ({ name, type })),
+    primaryKey,
+  };
 }
 
 function parseInsert(sql) {
@@ -172,7 +204,7 @@ function parseWhere(whereRaw) {
 }
 
 function parseCondition(cond) {
-  const match = cond.match(/([\w\(\)\*]+)\s*(=|>|<|>=|<=)\s*(.+)/i);
+  const match = cond.match(/([\w\(\)\*]+)\s*(>=|<=|=|>|<)\s*(.+)/i);
   if (!match) throw new Error("Invalid WHERE/HAVING condition");
 
   let [, column, operator, value] = match;
@@ -183,7 +215,7 @@ function parseCondition(cond) {
   return { column, operator, value };
 }
 
-function ParseUpdate(sql) {
+function parseUpdate(sql) {
   const match = sql.match(
     /UPDATE\s+(\w+)\s+SET\s+(.+?)(?:\s+WHERE\s+(\w+)\s*=\s*(.+))?$/i,
   );

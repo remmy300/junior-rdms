@@ -1,13 +1,20 @@
 {
   "name": "junior_rdbms",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A lightweight in-memory SQL engine built in JavaScript for learning query execution internals.",
+  "main": "src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/index.js",
+    "test": "node --test"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "sql",
+    "database",
+    "rdbms",
+    "javascript",
+    "in-memory"
+  ],
+  "author": "Admin",
   "license": "ISC",
   "type": "module"
 }

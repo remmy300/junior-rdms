@@ -263,12 +263,12 @@ export class Table {
             break;
           }
           case "MIN": {
-            outRow[col.alias] =
+            aggRow[col.alias] =
               values.length === 0 ? null : Math.min(...values);
             break;
           }
           case "MAX": {
-            outRow[col.alias] =
+            aggRow[col.alias] =
               values.length === 0 ? null : Math.max(...values);
             break;
           }
